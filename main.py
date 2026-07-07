@@ -8,9 +8,9 @@ from datetime import datetime
 from zoneinfo import ZoneInfo  # Utilise le fuseau horaire proprement
 
 # --- CONFIGURATION ---
-SERVER_IP = "TON_IP_GPORTAL"
-QUERY_PORT = 27015  # Remplace par ton Query Port
-WEBHOOK_URL = "TON_URL_WEBHOOK_DISCORD"
+SERVER_IP = "176.57.173.26"
+QUERY_PORT = 28615  # Remplace par ton Query Port
+WEBHOOK_URL = "https://discord.com/api/webhooks/1517110605205602444/m6mgzZO5O8PSX_vU4M_84PmqCbt7V1DvpFfJhpjH7GTbcBi0uhg-ZuVWh2Tu1-D2o2Zu"
 # ---------------------
 
 # --- SERVEUR WEB FACTICE ---
