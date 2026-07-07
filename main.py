@@ -6,12 +6,12 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # --- CONFIGURATION ---
-SERVER_IP = "176.57.173.26"
-QUERY_PORT = 28615  # Remplace par ton Query Port (sans guillemets)
-WEBHOOK_URL = "https://discord.com/api/webhooks/1517110605205602444/m6mgzZO5O8PSX_vU4M_84PmqCbt7V1DvpFfJhpjH7GTbcBi0uhg-ZuVWh2Tu1-D2o2Zu"
+SERVER_IP = "TON_IP_GPORTAL"
+QUERY_PORT = 27015  # Remplace par ton Query Port
+WEBHOOK_URL = "TON_URL_WEBHOOK_DISCORD"
 # ---------------------
 
-# --- SERVEUR WEB FACTICE (Obligatoire pour l'hébergeur gratuit) ---
+# --- SERVEUR WEB FACTICE ---
 class DummyHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -26,34 +26,51 @@ def run_dummy_server():
 threading.Thread(target=run_dummy_server, daemon=True).start()
 # ------------------------------------------------------------------
 
-last_status = None
+message_id = None
 
 def check_server():
-    global last_status
+    global message_id
+    
+    # 1. On récupère les infos du serveur
     try:
-        # Interrogation du Query Port (timeout de 5 secondes max)
         info = a2s.info((SERVER_IP, QUERY_PORT), timeout=5.0)
-        current_status = "online"
-        message = f"🟢 **Le serveur Conan est EN LIGNE**\nJoueurs connectés : {info.player_count}/{info.max_players}"
-        color = 3066993 # Code couleur Vert
+        message = f"🟢 **Le serveur Conan est EN LIGNE**\n\n👥 **Joueurs connectés :** {info.player_count}/{info.max_players}\n🗺️ **Carte :** {info.map_name}"
+        color = 3066993 # Vert
     except Exception:
-        current_status = "offline"
-        message = "🔴 **Le serveur Conan est HORS LIGNE !**"
-        color = 15158332 # Code couleur Rouge
+        message = "🔴 **Le serveur Conan est HORS LIGNE !**\n\nLe serveur ne répond pas ou est en cours de redémarrage."
+        color = 15158332 # Rouge
 
-    # On envoie un message sur Discord UNIQUEMENT si le statut a changé
-    if current_status != last_status:
-        payload = {
-            "embeds": [{
-                "title": "Statut du Serveur",
-                "description": message,
-                "color": color
-            }]
-        }
-        requests.post(WEBHOOK_URL, json=payload)
-        last_status = current_status
+    # Heure française approximative pour le footer (Render est souvent à l'heure UTC)
+    current_time = time.strftime('%H:%M:%S')
 
-# Boucle principale : vérifie toutes les 3 minutes (180 secondes)
+    payload = {
+        "embeds": [{
+            "title": "Statut du Serveur Conan Exiles",
+            "description": message,
+            "color": color,
+            "footer": {"text": f"Dernière mise à jour : {current_time}"}
+        }]
+    }
+
+    # 2. On gère l'envoi ou la modification du message sur Discord
+    try:
+        if message_id is None:
+            # Premier lancement : on crée le message et on sauvegarde son ID
+            res = requests.post(f"{WEBHOOK_URL}?wait=true", json=payload)
+            if res.status_code in [200, 201]:
+                message_id = res.json().get("id")
+        else:
+            # Lancements suivants : on MODIFIE le message existant
+            res = requests.patch(f"{WEBHOOK_URL}/messages/{message_id}", json=payload)
+            # Si le message a été supprimé manuellement sur Discord, on en recrée un
+            if res.status_code == 404:
+                res = requests.post(f"{WEBHOOK_URL}?wait=true", json=payload)
+                if res.status_code in [200, 201]:
+                    message_id = res.json().get("id")
+    except Exception as e:
+        print(f"Erreur Webhook : {e}")
+
+# Boucle principale : vérifie toutes les 3 minutes
 while True:
     check_server()
     time.sleep(180)
