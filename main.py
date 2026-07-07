@@ -100,4 +100,4 @@ def check_server():
 # Boucle principale : vérifie toutes les 3 minutes
 while True:
     check_server()
-    time.sleep(120)
+    time.sleep(180)
