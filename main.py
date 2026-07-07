@@ -39,12 +39,12 @@ def check_server():
     try:
         info = a2s.info((SERVER_IP, QUERY_PORT), timeout=6.0)
         current_online = True
-        message = f"🟢 **Le serveur Conan est EN LIGNE**\n\n👥 **Joueurs connectés :** {info.player_count}/{info.max_players}\n🗺️ **Carte :** {info.map_name}"
+        message = f"🟢 **Le serveur *Blood Lady* est EN LIGNE**\n\n👥 **Joueurs connectés :** {info.player_count}/{info.max_players}\n🗺️ **Carte :** {info.map_name}"
         color = 3066993
     except Exception as e:
         print(f"⚠️ Erreur de connexion au serveur Conan : {e}")
         current_online = False
-        message = "🔴 **Le serveur Conan est HORS LIGNE !**\n\nLe serveur ne répond pas ou est en cours de redémarrage."
+        message = "🔴 **Le serveur *Blood Lady* est HORS LIGNE !**\n\nLe serveur ne répond pas ou est en cours de redémarrage."
         color = 15158332
 
     # 2. ALERTE DE REDÉMARRAGE
@@ -67,7 +67,7 @@ def check_server():
 
     payload = {
         "embeds": [{
-            "title": "Statut du Serveur Conan Exiles",
+            "title": "Statut du Serveur",
             "description": message,
             "color": color,
             "footer": {"text": f"Dernière mise à jour : {current_time}"}
@@ -100,4 +100,4 @@ def check_server():
 # Boucle principale : vérifie toutes les 3 minutes
 while True:
     check_server()
-    time.sleep(180)
+    time.sleep(120)
