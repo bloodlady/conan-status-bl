@@ -36,11 +36,11 @@ def check_server():
     try:
         info = a2s.info((SERVER_IP, QUERY_PORT), timeout=5.0)
         current_online = True
-        message = f"🟢 **Le serveur Conan est EN LIGNE**\n\n👥 **Joueurs connectés :** {info.player_count}/{info.max_players}\n🗺️ **Carte :** {info.map_name}"
+        message = f"🟢 **Le serveur *Blood Lady* est EN LIGNE**\n\n👥 **Joueurs connectés :** {info.player_count}/{info.max_players}\n🗺️ **Carte :** {info.map_name}"
         color = 3066993 # Vert
     except Exception:
         current_online = False
-        message = "🔴 **Le serveur Conan est HORS LIGNE !**\n\nLe serveur ne répond pas ou est en cours de redémarrage."
+        message = "🔴 **Le serveur *Blood Lady* est HORS LIGNE !**\n\nLe serveur ne répond pas ou est en cours de redémarrage."
         color = 15158332 # Rouge
 
     # 2. ALERTE DE REDÉMARRAGE 
@@ -85,7 +85,7 @@ def check_server():
     except Exception as e:
         print(f"Erreur Webhook : {e}")
 
-# Boucle principale : vérifie toutes les 3 minutes
+# Boucle principale : vérifie toutes les 2 minutes
 while True:
     check_server()
-    time.sleep(180)
+    time.sleep(120)
