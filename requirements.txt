@@ -1,3 +1,2 @@
-Plaintext
 requests
 python-a2s
