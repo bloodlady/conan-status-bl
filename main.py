@@ -27,20 +27,38 @@ threading.Thread(target=run_dummy_server, daemon=True).start()
 # ------------------------------------------------------------------
 
 message_id = None
+was_online = None  # Cette variable sert de mémoire au script
 
 def check_server():
-    global message_id
+    global message_id, was_online
     
     # 1. On récupère les infos du serveur
     try:
         info = a2s.info((SERVER_IP, QUERY_PORT), timeout=5.0)
+        current_online = True
         message = f"🟢 **Le serveur Conan est EN LIGNE**\n\n👥 **Joueurs connectés :** {info.player_count}/{info.max_players}\n🗺️ **Carte :** {info.map_name}"
         color = 3066993 # Vert
     except Exception:
+        current_online = False
         message = "🔴 **Le serveur Conan est HORS LIGNE !**\n\nLe serveur ne répond pas ou est en cours de redémarrage."
         color = 15158332 # Rouge
 
-    # Heure française approximative pour le footer (Render est souvent à l'heure UTC)
+    # 2. ALERTE DE REDÉMARRAGE 
+    # Si le serveur ÉTAIT hors ligne (False) et qu'il est MAINTENANT en ligne (True)
+    if was_online is False and current_online is True:
+        try:
+            alert_payload = {
+                "content": "🚀 **@here Le serveur Blood Lady vient de redémarrer ! Il est de nouveau accessible. Bon jeu à tous !**"
+                # Astuce : Vous pouvez ajouter @everyone ou @ici au début du texte si vous voulez notifier tout le monde
+            }
+            requests.post(WEBHOOK_URL, json=alert_payload)
+        except Exception as e:
+            print(f"Erreur lors de l'envoi de l'alerte : {e}")
+
+    # On met à jour la mémoire pour le prochain tour
+    was_online = current_online
+
+    # Heure française approximative pour le footer
     current_time = time.strftime('%H:%M:%S')
 
     payload = {
@@ -52,17 +70,14 @@ def check_server():
         }]
     }
 
-    # 2. On gère l'envoi ou la modification du message sur Discord
+    # 3. On gère l'envoi ou la modification du message fixe
     try:
         if message_id is None:
-            # Premier lancement : on crée le message et on sauvegarde son ID
             res = requests.post(f"{WEBHOOK_URL}?wait=true", json=payload)
             if res.status_code in [200, 201]:
                 message_id = res.json().get("id")
         else:
-            # Lancements suivants : on MODIFIE le message existant
             res = requests.patch(f"{WEBHOOK_URL}/messages/{message_id}", json=payload)
-            # Si le message a été supprimé manuellement sur Discord, on en recrée un
             if res.status_code == 404:
                 res = requests.post(f"{WEBHOOK_URL}?wait=true", json=payload)
                 if res.status_code in [200, 201]:
