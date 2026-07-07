@@ -4,11 +4,13 @@ import a2s
 import os
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from datetime import datetime
+from zoneinfo import ZoneInfo  # Utilise le fuseau horaire proprement
 
 # --- CONFIGURATION ---
-SERVER_IP = "176.57.173.26:28600"
-QUERY_PORT = 28615  # Remplace par ton Query Port
-WEBHOOK_URL = "https://discord.com/api/webhooks/1517110605205602444/m6mgzZO5O8PSX_vU4M_84PmqCbt7V1DvpFfJhpjH7GTbcBi0uhg-ZuVWh2Tu1-D2o2Zu"
+SERVER_IP = "TON_IP_GPORTAL"
+QUERY_PORT = 27015  # Remplace par ton Query Port
+WEBHOOK_URL = "TON_URL_WEBHOOK_DISCORD"
 # ---------------------
 
 # --- SERVEUR WEB FACTICE ---
@@ -27,27 +29,29 @@ threading.Thread(target=run_dummy_server, daemon=True).start()
 # ------------------------------------------------------------------
 
 message_id = None
-was_online = None  # Mémoire du script
+was_online = None
 
 def check_server():
     global message_id, was_online
     
     # 1. On récupère les infos du serveur Conan
     try:
-        info = a2s.info((SERVER_IP, QUERY_PORT), timeout=5.0)
+        info = a2s.info((SERVER_IP, QUERY_PORT), timeout=6.0)
         current_online = True
-        message = f"🟢 **Le serveur *Blood Lady* est EN LIGNE**\n\n👥 **Joueurs connectés :** {info.player_count}/{info.max_players}\n🗺️ **Carte :** {info.map_name}"
-        color = 3066993 # Vert
-    except Exception:
+        message = f"🟢 **Le serveur Conan est EN LIGNE**\n\n👥 **Joueurs connectés :** {info.player_count}/{info.max_players}\n🗺️ **Carte :** {info.map_name}"
+        color = 3066993
+    except Exception as e:
+        # Cette ligne permet d'écrire l'erreur dans la console Render pour diagnostic
+        print(f"⚠️ Erreur de connexion au serveur Conan : {e}")
         current_online = False
-        message = "🔴 **Le serveur *Blood Lady* est HORS LIGNE !**\n\nLe serveur ne répond pas ou est en cours de redémarrage."
-        color = 15158332 # Rouge
+        message = "🔴 **Le serveur Conan est HORS LIGNE !**\n\nLe serveur ne répond pas ou est en cours de redémarrage."
+        color = 15158332
 
     # 2. ALERTE DE REDÉMARRAGE
     if was_online is False and current_online is True:
         try:
             alert_payload = {
-                "content": "🚀 **Le serveur *Blood Lady* vient de redémarrer ! Il est de nouveau accessible. Bon jeu à tous !**"
+                "content": "🚀 **Le serveur Conan Exiles vient de redémarrer ! Il est de nouveau accessible. Bon jeu !**"
             }
             requests.post(WEBHOOK_URL, json=alert_payload)
         except Exception as e:
@@ -56,8 +60,8 @@ def check_server():
     # On met à jour la mémoire d'état
     was_online = current_online
 
-    # Heure de la mise à jour
-    current_time = time.strftime('%H:%M:%S')
+    # Force l'heure de Paris (Europe/Paris)
+    current_time = datetime.now(ZoneInfo("Europe/Paris")).strftime('%H:%M:%S')
 
     payload = {
         "embeds": [{
@@ -70,11 +74,9 @@ def check_server():
 
     # 3. GESTION DE L'AFFICHAGE (Toujours tout en bas)
     try:
-        # Si un ancien message existe, on le supprime d'abord
         if message_id is not None:
             requests.delete(f"{WEBHOOK_URL}/messages/{message_id}")
             
-        # On poste le nouveau message tout en bas du salon
         res = requests.post(f"{WEBHOOK_URL}?wait=true", json=payload)
         if res.status_code in [200, 201]:
             message_id = res.json().get("id")
@@ -85,4 +87,4 @@ def check_server():
 # Boucle principale : vérifie toutes les 3 minutes
 while True:
     check_server()
-    time.sleep(120)
+    time.sleep(180)
