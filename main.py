@@ -50,6 +50,12 @@ class DummyHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"Le bot fonctionne !")
 
+    def do_HEAD(self):
+        # UptimeRobot (plan gratuit) envoie des requetes HEAD, pas GET.
+        # Sans cette methode, le serveur renvoie une erreur 501 Not Implemented.
+        self.send_response(200)
+        self.end_headers()
+
     def log_message(self, format, *args):
         pass  # evite de polluer les logs Render a chaque ping
 
