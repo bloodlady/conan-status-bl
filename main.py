@@ -52,7 +52,7 @@ def check_server():
         if was_online is False and current_online is True:
             try:
                 alert_payload = {
-                    "content": "🚀 **Le serveur *Blood Lady* Exiles vient de redémarrer ! Il est de nouveau accessible. Bon jeu !**"
+                    "content": "🚀 **Le serveur *Blood Lady* Exiles vient de redémarrer ! Il est de nouveau accessible. Bon jeu ! 🟢**"
                 }
                 requests.post(WEBHOOK_URL, json=alert_payload)
                 force_repost = True
@@ -68,7 +68,7 @@ def check_server():
 
         payload = {
             "embeds": [{
-                "title": "Statut du Serveur Conan Exiles",
+                "title": "Statut du Serveur",
                 "description": message,
                 "color": color,
                 "footer": {"text": f"Dernière mise à jour : {current_time}"}
@@ -107,4 +107,4 @@ def check_server():
 # Boucle principale : vérifie toutes les 3 minutes
 while True:
     check_server()
-    time.sleep(180)
+    time.sleep(90)
