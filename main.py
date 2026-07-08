@@ -4,8 +4,7 @@ import a2s
 import os
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timezone, timedelta  # Plus besoin de zoneinfo !
 
 # --- CONFIGURATION ---
 SERVER_IP = "176.57.173.26"
@@ -35,67 +34,75 @@ def check_server():
     global message_id, was_online
     force_repost = False
     
-    # 1. On récupère les infos du serveur Conan
+    # GROS FILET DE SÉCURITÉ : Empêche le script de mourir quoi qu'il arrive
     try:
-        info = a2s.info((SERVER_IP, QUERY_PORT), timeout=6.0)
-        current_online = True
-        message = f"🟢 **Le serveur *Blood Lady* est EN LIGNE**\n\n👥 **Joueurs connectés :** {info.player_count}/{info.max_players}\n🗺️ **Carte :** {info.map_name}"
-        color = 3066993
-    except Exception as e:
-        print(f"⚠️ Erreur de connexion au serveur Conan : {e}")
-        current_online = False
-        message = "🔴 **Le serveur *Blood Lady* est HORS LIGNE !**\n\nLe serveur ne répond pas ou est en cours de redémarrage."
-        color = 15158332
-
-    # 2. ALERTE DE REDÉMARRAGE
-    if was_online is False and current_online is True:
+        # 1. On récupère les infos du serveur Conan
         try:
-            alert_payload = {
-                "content": "🚀 **Le serveur Conan Exiles vient de redémarrer ! Il est de nouveau accessible. Bon jeu !**"
-            }
-            requests.post(WEBHOOK_URL, json=alert_payload)
-            # Le serveur vient de rebooter, on demande au script de recréer la carte tout en bas
-            force_repost = True
+            info = a2s.info((SERVER_IP, QUERY_PORT), timeout=6.0)
+            current_online = True
+            message = f"🟢 **Le serveur *Blood Lady* est EN LIGNE**\n\n👥 **Joueurs connectés :** {info.player_count}/{info.max_players}\n🗺️ **Carte :** {info.map_name}"
+            color = 3066993
         except Exception as e:
-            print(f"Erreur lors de l'envoi de l'alerte : {e}")
+            print(f"⚠️ Erreur de connexion au serveur Conan : {e}")
+            current_online = False
+            message = "🔴 **Le serveur *Blood Lady* est HORS LIGNE !**\n\nLe serveur ne répond pas ou est en cours de redémarrage."
+            color = 15158332
 
-    # On met à jour la mémoire d'état
-    was_online = current_online
+        # 2. ALERTE DE REDÉMARRAGE
+        if was_online is False and current_online is True:
+            try:
+                alert_payload = {
+                    "content": "🚀 **Le serveur *Blood Lady* Exiles vient de redémarrer ! Il est de nouveau accessible. Bon jeu !**"
+                }
+                requests.post(WEBHOOK_URL, json=alert_payload)
+                force_repost = True
+            except Exception as e:
+                print(f"Erreur lors de l'envoi de l'alerte : {e}")
 
-    # Heure française de Paris
-    current_time = datetime.now(ZoneInfo("Europe/Paris")).strftime('%H:%M:%S')
+        # On met à jour la mémoire d'état
+        was_online = current_online
 
-    payload = {
-        "embeds": [{
-            "title": "Statut du Serveur",
-            "description": message,
-            "color": color,
-            "footer": {"text": f"Dernière mise à jour : {current_time}"}
-        }]
-    }
+        # Heure française de Paris (UTC+2 en été) sans aucune bibliothèque externe
+        tz_france = timezone(timedelta(hours=2))
+        current_time = datetime.now(tz_france).strftime('%H:%M:%S')
 
-    # 3. GESTION DE L'AFFICHAGE SILENCIEUX
-    try:
-        # Si un reboot a eu lieu, on force la suppression de l'ancienne carte pour la remettre en bas
+        payload = {
+            "embeds": [{
+                "title": "Statut du Serveur Conan Exiles",
+                "description": message,
+                "color": color,
+                "footer": {"text": f"Dernière mise à jour : {current_time}"}
+            }]
+        }
+
+        # 3. GESTION DE L'AFFICHAGE SILENCIEUX
         if force_repost and message_id is not None:
-            requests.delete(f"{WEBHOOK_URL}/messages/{message_id}")
+            try:
+                requests.delete(f"{WEBHOOK_URL}/messages/{message_id}")
+            except:
+                pass
             message_id = None
 
         if message_id is None:
-            # Nouveau message ou après un reboot -> Envoi classique (génère une notification)
+            # Premier lancement
             res = requests.post(f"{WEBHOOK_URL}?wait=true", json=payload)
             if res.status_code in [200, 201]:
                 message_id = res.json().get("id")
+            else:
+                print(f"❌ Échec Discord POST. Code : {res.status_code}")
         else:
-            # Mise à jour de routine -> On MODIFIE le message (100% silencieux, pas de notification)
+            # Mise à jour silencieuse
             res = requests.patch(f"{WEBHOOK_URL}/messages/{message_id}", json=payload)
-            if res.status_code == 404:  # Si le message a été supprimé manuellement entre temps
+            if res.status_code == 404:  # Si le message a été supprimé manuellement
                 res = requests.post(f"{WEBHOOK_URL}?wait=true", json=payload)
                 if res.status_code in [200, 201]:
                     message_id = res.json().get("id")
-            
-    except Exception as e:
-        print(f"Erreur Webhook : {e}")
+            elif res.status_code not in [200, 204]:
+                print(f"❌ Échec Discord PATCH. Code : {res.status_code}")
+                
+    except Exception as main_error:
+        # Si une erreur improbable survient, on l'affiche sans tuer le bot
+        print(f"💥 Erreur critique générale : {main_error}")
 
 # Boucle principale : vérifie toutes les 3 minutes
 while True:
