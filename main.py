@@ -52,7 +52,7 @@ def check_server():
         if was_online is False and current_online is True:
             try:
                 alert_payload = {
-                    "content": "🚀 **Le serveur *Blood Lady* Exiles vient de redémarrer ! Il est de nouveau accessible. Bon jeu ! 🟢**"
+                    "content": ":white_check_mark: **Le serveur *Blood Lady* Exiles vient de redémarrer ! Il est de nouveau accessible. Bon jeu ! 🟢**"
                 }
                 requests.post(WEBHOOK_URL, json=alert_payload)
                 force_repost = True
