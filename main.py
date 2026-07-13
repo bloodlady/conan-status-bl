@@ -123,7 +123,6 @@ def check_server():
             info = a2s.info((SERVER_IP, QUERY_PORT), timeout=6.0)
             current_online = True
             message = (f"🟢 **Le serveur *Blood Lady* est EN LIGNE**\n\n"
-                       f"👥 **Joueurs connectes :** {info.player_count}/{info.max_players}\n"
                        f"🗺️ **Carte :** {info.map_name}")
             color = 3066993
         except Exception as e:
