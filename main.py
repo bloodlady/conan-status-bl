@@ -29,6 +29,26 @@ GIST_ID = get_required_env("GIST_ID")
 SERVER_IP = os.environ.get("SERVER_IP", "176.57.173.26")
 QUERY_PORT = int(os.environ.get("QUERY_PORT", "28615"))
 
+# Heure (0-23, heure de Paris) du reboot quotidien deja programme sur GPortal.
+# Si definie, aucune alerte de redemarrage n'est envoyee quand le serveur
+# s'arrete pendant cette fenetre (c'est un reboot attendu, pas une mise a jour).
+# Si non definie (laisser vide sur Render), une alerte sera envoyee a CHAQUE
+# arret du serveur, quelle qu'en soit la cause.
+REBOOT_QUOTIDIEN_HEURE = os.environ.get("REBOOT_QUOTIDIEN_HEURE")
+REBOOT_QUOTIDIEN_TOLERANCE_MIN = int(os.environ.get("REBOOT_QUOTIDIEN_TOLERANCE_MIN", "15"))
+
+def is_reboot_quotidien_attendu(now):
+    """True si 'now' tombe dans la fenetre du reboot quotidien connu (donc a ignorer)."""
+    if not REBOOT_QUOTIDIEN_HEURE:
+        return False
+    try:
+        heure_prevue = int(REBOOT_QUOTIDIEN_HEURE)
+    except ValueError:
+        return False
+    reboot_prevu = now.replace(hour=heure_prevue, minute=0, second=0, microsecond=0)
+    ecart_minutes = abs((now - reboot_prevu).total_seconds()) / 60
+    return ecart_minutes <= REBOOT_QUOTIDIEN_TOLERANCE_MIN
+
 STATE_FILENAME = "conan_bot_state.json"
 GIST_API_URL = f"https://api.github.com/gists/{GIST_ID}"
 GITHUB_HEADERS = {
@@ -132,7 +152,22 @@ def check_server():
                        "Le serveur ne repond pas ou est en cours de redemarrage.")
             color = 15158332
 
-        # 2. ALERTE DE REDEMARRAGE
+        tz_france = timezone(timedelta(hours=2))
+        now_france = datetime.now(tz_france)
+
+        # 2. ALERTE DE MISE HORS LIGNE (mise a jour GPortal / maintenance imprevue)
+        # On ignore silencieusement si ca tombe dans la fenetre du reboot quotidien connu.
+        if was_online is True and current_online is False:
+            if not is_reboot_quotidien_attendu(now_france):
+                try:
+                    requests.post(WEBHOOK_URL, json={
+                        "content": "🔄 **Le serveur *Blood Lady* redemarre (mise a jour ou maintenance). "
+                                   "Il sera de nouveau operationnel dans un instant.**"
+                    })
+                except Exception as e:
+                    print(f"Erreur lors de l'envoi de l'alerte de mise hors ligne : {e}")
+
+        # 3. ALERTE DE REDEMARRAGE (retour en ligne)
         if was_online is False and current_online is True:
             try:
                 alert_payload = {
@@ -148,8 +183,7 @@ def check_server():
         was_online = current_online
 
         # Heure francaise de Paris (UTC+2 en ete) sans aucune bibliotheque externe
-        tz_france = timezone(timedelta(hours=2))
-        current_time = datetime.now(tz_france).strftime('%H:%M:%S')
+        current_time = now_france.strftime('%H:%M:%S')
 
         payload = {
             "embeds": [{
@@ -160,7 +194,7 @@ def check_server():
             }]
         }
 
-        # 3. GESTION DE L'AFFICHAGE SILENCIEUX
+        # 4. GESTION DE L'AFFICHAGE SILENCIEUX
         if force_repost and message_id is not None:
             try:
                 requests.delete(f"{WEBHOOK_URL}/messages/{message_id}")
@@ -185,7 +219,7 @@ def check_server():
             elif res.status_code not in [200, 204]:
                 print(f"❌ Echec Discord PATCH. Code : {res.status_code}")
 
-        # 4. SAUVEGARDE DE L'ETAT
+        # 5. SAUVEGARDE DE L'ETAT
         # A chaque cycle, on sauvegarde message_id et was_online dans le Gist.
         # Si Render redemarre le bot juste apres, il retrouvera le bon etat
         # au prochain demarrage au lieu de reposter une carte en double.
